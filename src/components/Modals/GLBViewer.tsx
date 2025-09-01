@@ -53,7 +53,7 @@ export function GLBViewer({ src, autoRotate = true, background = "#0b0b0b" }: GL
 
         <Suspense fallback={<Loader />}>
           {/* Stage auto-centers/scales model and provides gentle lighting and shadows */}
-          <Stage intensity={1} adjustCamera shadows contactShadow environment={null}>
+          <Stage intensity={1} adjustCamera shadows environment={null}>
             <Model src={src} />
           </Stage>
 

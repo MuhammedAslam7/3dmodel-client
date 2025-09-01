@@ -23,6 +23,17 @@ const ACCEPTED_EXTENSIONS = [".glb", ".gltf", ".fbx", ".obj", ".stl", ".usdz"];
 const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(",");
 const MAX_BYTES = 100 * 1024 * 1024; // 100MB
 
+// Define proper types for progress event and axios response
+interface UploadProgressEvent {
+  loaded: number;
+  total?: number;
+}
+
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
 export function ModelAddPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -32,7 +43,7 @@ export function ModelAddPage() {
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [aborted, setAborted] = useState(false);
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   function resetState() {
@@ -126,20 +137,26 @@ export function ModelAddPage() {
 
     setIsUploading(true);
     setProgress(0);
+    setAborted(false);
+
+    // Create abort controller for cancellation
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       const formData = new FormData();
       formData.append("name", name.trim());
       formData.append("file", file);
 
-      const response = await axios.post(
-        "http://localhost:5001/upload-model",
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/upload-model`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          onUploadProgress: (progressEvent: ProgressEvent) => {
+          signal: abortController.signal,
+          onUploadProgress: (progressEvent: UploadProgressEvent) => {
             if (progressEvent.total) {
               const pct = Math.round(
                 (progressEvent.loaded / progressEvent.total) * 100
@@ -160,11 +177,23 @@ export function ModelAddPage() {
       });
       setTimeout(() => setProgress(0), 400);
     } catch (error) {
+      // Handle abort/cancellation
+      if (axios.isCancel(error) || aborted) {
+        toast.warn("Upload canceled.", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+
       let message = "Upload failed";
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<{ message: string }>;
+        const axiosError = error as AxiosError<ApiErrorResponse>;
         message =
-          axiosError.response?.data?.message || axiosError.message || message;
+          axiosError.response?.data?.message || 
+          axiosError.response?.data?.error || 
+          axiosError.message || 
+          message;
       } else if (error instanceof Error) {
         message = error.message;
       }
@@ -176,33 +205,31 @@ export function ModelAddPage() {
       });
     } finally {
       setIsUploading(false);
+      abortControllerRef.current = null;
     }
   }
 
   function cancelUpload() {
-    if (xhrRef.current && isUploading) {
+    if (abortControllerRef.current && isUploading) {
       setAborted(true);
-      xhrRef.current.abort();
-      xhrRef.current = null;
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
       setIsUploading(false);
-      toast.warn("Upload canceled.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
+      setProgress(0);
     }
   }
 
-  function safeParseError(text: string | null): string | null {
-    if (!text) return null;
-    try {
-      const obj = JSON.parse(text);
-      if (typeof (obj as any)?.error === "string") return (obj as any).error;
-      if (typeof (obj as any)?.message === "string") return (obj as any).message;
-    } catch {
-      // not JSON, ignore
-    }
-    return text.replace(/<[^>]*>/g, "").slice(0, 300);
-  }
+  // function safeParseError(text: string | null): string | null {
+  //   if (!text) return null;
+  //   try {
+  //     const obj = JSON.parse(text) as ApiErrorResponse;
+  //     if (typeof obj?.error === "string") return obj.error;
+  //     if (typeof obj?.message === "string") return obj.message;
+  //   } catch {
+  //     // not JSON, ignore
+  //   }
+  //   return text.replace(/<[^>]*>/g, "").slice(0, 300);
+  // }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -364,7 +391,9 @@ export function ModelAddPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Button onClick={() => navigate("/")}>Go Back</Button>
+              <Button type="button" variant="outline" onClick={() => navigate("/")}>
+                Go Back
+              </Button>
               <div className="space-x-3">
                 <Button
                   type="button"

@@ -8,12 +8,16 @@ import * as THREE from "three"
 function Loader() {
   return (
     <Html center>
-      <div className="rounded-md bg-background/80 px-2 py-1 text-xs text-foreground shadow">Loading…</div>
+      <div className="rounded-md bg-black/80 px-2 py-1 text-xs text-white shadow">Loading…</div>
     </Html>
   )
 }
 
-function CameraController({ modelRef }: { modelRef: React.RefObject<THREE.Group> }) {
+interface CameraControllerProps {
+  modelRef: React.RefObject<THREE.Group | null>
+}
+
+function CameraController({ modelRef }: CameraControllerProps) {
   const { camera, controls } = useThree()
   const hasAdjusted = useRef(false)
 
@@ -41,15 +45,25 @@ function CameraController({ modelRef }: { modelRef: React.RefObject<THREE.Group>
       camera.lookAt(center)
       
       // Update controls target to model center
-      if (controls.target) {
-        controls.target.copy(center)
+      const orbitControls = controls as unknown as { 
+        target?: THREE.Vector3
+        minDistance?: number
+        maxDistance?: number
+        update: () => void
+      }
+      if (orbitControls.target) {
+        orbitControls.target.copy(center)
       }
       
       // Set reasonable min/max distances based on model size
-      controls.minDistance = maxDimension * 1.2
-      controls.maxDistance = maxDimension * 4
+      if (orbitControls.minDistance !== undefined) {
+        orbitControls.minDistance = maxDimension * 1.2
+      }
+      if (orbitControls.maxDistance !== undefined) {
+        orbitControls.maxDistance = maxDimension * 4
+      }
       
-      controls.update()
+      orbitControls.update()
       hasAdjusted.current = true
     }
   })
@@ -57,16 +71,21 @@ function CameraController({ modelRef }: { modelRef: React.RefObject<THREE.Group>
   return null
 }
 
-function Model({ url }: { url: string }) {
+interface ModelProps {
+  url: string
+}
+
+function Model({ url }: ModelProps) {
   const gltf = useGLTF(url, true)
   const modelRef = useRef<THREE.Group>(null)
 
   // Enable nicer lighting on supported meshes
   useEffect(() => {
-    gltf.scene.traverse((obj: any) => {
-      if (obj?.isMesh) {
-        obj.castShadow = true
-        obj.receiveShadow = true
+    gltf.scene.traverse((obj: THREE.Object3D) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        const mesh = obj as THREE.Mesh
+        mesh.castShadow = true
+        mesh.receiveShadow = true
       }
     })
   }, [gltf])
@@ -81,11 +100,16 @@ function Model({ url }: { url: string }) {
   )
 }
 
-// Preload a known-good fallback
-useGLTF.preload?.("/assets/3d/duck.glb")
+// Preload a known-good fallback (commented out as path may not exist)
+// useGLTF.preload("/assets/3d/duck.glb")
 
-export function ModelCanvas({ modelUrl }: { modelUrl: string }) {
-  const safeUrl = modelUrl?.trim() || "/assets/3d/duck.glb"
+interface ModelCanvasProps {
+  modelUrl: string
+}
+
+export function ModelCanvas({ modelUrl }: ModelCanvasProps) {
+  // Use a default URL or handle empty/invalid URLs
+  const safeUrl = modelUrl?.trim() || "https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf"
 
   return (
     <div className="relative h-full w-full">

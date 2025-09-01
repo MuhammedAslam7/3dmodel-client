@@ -16,16 +16,16 @@ const fetcher = async (url: string) => {
 }
 
 export function ModelsGrid() {
-  const { data, error, isLoading } = useSWR<Model[]>("http://localhost:5001/all-models", fetcher, {
+  const { data, error, isLoading } = useSWR<Model[]>(`${import.meta.env.VITE_API_URL}/all-models`, fetcher, {
     revalidateOnFocus: false,
   })
 
   const models = data?.map((m) => ({
-    id: m._id,          // map _id -> id
+    id: m._id,        
     name: m.name,
-    url: m.fileUrl,      // map fileUrl -> url
-    format: "glb",       // you can hardcode or get from API if available
-    sizeMB: 1.2,         // default value or from API if available
+    url: m.fileUrl,      
+    format: "glb",      
+    sizeMB: 1.2,        
     updatedAt: m.updatedAt,
   })) || []
 
