@@ -39,7 +39,6 @@ export type ModelCanvasProps = {
     | "lobby"
     | "night"
     | "park"
-    | "bridge"
   className?: string
 }
 
