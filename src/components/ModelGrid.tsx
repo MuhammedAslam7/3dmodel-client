@@ -5,6 +5,7 @@ type Model = {
   _id: string
   name: string
   fileUrl: string
+  fileSize:string
   createdAt?: string
   updatedAt?: string
 }
@@ -16,7 +17,7 @@ const fetcher = async (url: string) => {
 }
 
 export function ModelsGrid() {
-  const { data, error, isLoading } = useSWR<Model[]>(`${import.meta.env.VITE_API_URL}/all-models`, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<Model[]>(`${import.meta.env.VITE_API_URL}/all-models`, fetcher, {
     revalidateOnFocus: false,
   })
 
@@ -25,9 +26,21 @@ export function ModelsGrid() {
     name: m.name,
     url: m.fileUrl,      
     format: "glb",      
-    sizeMB: 1.2,        
+    sizeMB: m.fileSize,       
     updatedAt: m.updatedAt,
   })) || []
+
+    const handleDelete = async(id: string) => {
+      await fetch(`${import.meta.env.VITE_API_URL}/delete-model`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type" : "application/json"
+        },
+        body: JSON.stringify({id})
+      })
+
+      mutate()
+  }
 
   if (isLoading) return <div>Loading...</div>
   if (error) return <div>Error: {error.message}</div>
@@ -85,7 +98,7 @@ export function ModelsGrid() {
           ) : (
             <div role="list" aria-label="3D models" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {models.map((m) => (
-                <ModelCard key={m.id} model={m} />
+                <ModelCard key={m.id} model={m} onDelete={handleDelete}/>
               ))}
             </div>
           )}

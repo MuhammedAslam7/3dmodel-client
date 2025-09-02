@@ -18,12 +18,10 @@ import { Separator } from "@/components/ui/separator";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Accept common 3D formats
 const ACCEPTED_EXTENSIONS = [".glb", ".gltf", ".fbx", ".obj", ".stl", ".usdz"];
 const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(",");
 const MAX_BYTES = 100 * 1024 * 1024; // 100MB
 
-// Define proper types for progress event and axios response
 interface UploadProgressEvent {
   loaded: number;
   total?: number;
@@ -139,7 +137,6 @@ export function ModelAddPage() {
     setProgress(0);
     setAborted(false);
 
-    // Create abort controller for cancellation
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -167,7 +164,6 @@ export function ModelAddPage() {
         }
       );
 
-      // Success
       setProgress(100);
       setName("");
       setFile(null);
@@ -177,7 +173,6 @@ export function ModelAddPage() {
       });
       setTimeout(() => setProgress(0), 400);
     } catch (error) {
-      // Handle abort/cancellation
       if (axios.isCancel(error) || aborted) {
         toast.warn("Upload canceled.", {
           position: "top-right",
